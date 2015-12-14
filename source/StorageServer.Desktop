@@ -1,0 +1,11 @@
+#!/usr/bin/env xdg-open
+
+[Desktop Entry]
+Version=1.0
+Type=Application
+Icon[zh_CN]=/srv/cloudmai/owncloud.jpg
+Exec=sh /srv/cloudmai/init.sh
+Name[zh_CN]=StorageServer
+Terminal=true
+Name=StorageServer
+Icon=/srv/cloudmai/owncloud.jpg
