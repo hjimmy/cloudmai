@@ -74,6 +74,7 @@ echo "<?php
   'dbname' => 'owncloud',
   'dbhost' => 'localhost',
   'dbtableprefix' => 'oc_',
+  'loglevel' => '4',
   'dbuser' => 'oc_admin',
   'dbpassword' => '$dbpassword',
   'installed' => true,
