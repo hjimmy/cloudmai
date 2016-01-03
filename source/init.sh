@@ -82,6 +82,8 @@ echo "<?php
 
 ###创建.ocdata
 touch /var/www/owncloud/data/.ocdata
+###Fix load slow
+mkdir -p /var/www/owncloud/core/skeleton/
 
 ###赋予owncloud访问权限
 chown apache:apache -R /var/www/owncloud
