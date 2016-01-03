@@ -44,11 +44,11 @@ chkconfig mysqld on
 #sed -i 's/Listen 80.*/Listen 8091/g' /etc/httpd/conf/httpd.conf
 ###设置owncloud路径
 echo "
-RedirectMatch ^/$ /owncloud/
+RedirectMatch ^/$ /bjkw/
 <Directory /var/www/owncloud>
   AllowOverride All
 </Directory>
-Alias /owncloud /var/www/owncloud" >/etc/httpd/conf.d/owncloud.conf
+Alias /bjkw /var/www/owncloud" >/etc/httpd/conf.d/owncloud.conf
 
 ###设置owncloud端口
 #sed -i 's/Listen.*/Listen 9091/g' /etc/httpd/conf.d/ssl.conf
