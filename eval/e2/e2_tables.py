@@ -35,6 +35,11 @@ TITLES = {
     "package": "Concurrent package-dispatch throughput (1,000 hosts)",
     "config": "Concurrent configuration-dispatch throughput (1,000 hosts)",
 }
+WORKLOAD_PHRASE = {
+    "scan": "scan",
+    "package": "package-dispatch",
+    "config": "configuration-dispatch",
+}
 TABLE_NUMBERS = {"scan": 13, "package": 14, "config": 15}
 LABELS = {"scan": "tab:e2-scan", "package": "tab:e2-package", "config": "tab:e2-config"}
 
@@ -212,42 +217,78 @@ def latex_table(workload: str, rows: dict[str, dict[str, str] | None]) -> str | 
 
 
 def prose(workload: str, rows: dict[str, dict[str, str] | None]) -> str:
-    """One results sentence. Unmeasured workloads describe the action only."""
-    if workload == "scan" and workload_ready(rows):
-        kmomp = rows["KMOMP"]
-        satellite = rows["Satellite 6.14"]
-        suse = rows["SUSE Manager"]
-        awx = rows["Ansible AWX"]
-        assert kmomp and satellite and suse and awx
-        return (
-            f"On the scan workload (Table {TABLE_NUMBERS['scan']}), "
-            f"KMOMP sustains {int(kmomp['throughput']):,} hosts/s with a P99 of "
-            f"{kmomp['p99']} s and {kmomp['delivery']} delivery. "
-            f"Satellite 6.14 sustains {satellite['throughput']} hosts/s "
-            f"(P99 {satellite['p99']} s, delivery {satellite['delivery']}). "
-            f"SUSE Manager sustains {suse['throughput']} hosts/s "
-            f"(P99 {suse['p99']} s, delivery {suse['delivery']}). "
-            f"Ansible AWX sustains {awx['throughput']} hosts/s "
-            f"(P99 {awx['p99']} s, delivery {awx['delivery']}). "
-            f"Stable concurrency is {kmomp['concurrency']} for KMOMP, "
-            f"{satellite['concurrency']} for Satellite 6.14 and SUSE Manager, "
-            f"and {awx['concurrency']} for Ansible AWX."
-        )
-    if workload == "package":
-        return (
-            "Package dispatch installs one software package on each of the "
-            f"{HOSTS:,} hosts and counts a delivery only after the package "
-            "database reports the requested version. Table "
-            f"{TABLE_NUMBERS['package']} uses the same columns as the scan."
-        )
-    if workload == "config":
-        return (
-            "Configuration dispatch writes one configuration unit on each of "
-            f"the {HOSTS:,} hosts and counts a delivery only after a read-back "
-            "matches the desired content. Table "
-            f"{TABLE_NUMBERS['config']} uses the same columns as the scan."
-        )
-    raise SheetError(f"unknown workload {workload}")
+    """One results paragraph per workload."""
+    if workload not in WORKLOADS:
+        raise SheetError(f"unknown workload {workload}")
+    if not workload_ready(rows):
+        if workload == "package":
+            return (
+                "Package dispatch installs one software package on each of the "
+                f"{HOSTS:,} hosts and counts a delivery only after the package "
+                "database reports the requested version."
+            )
+        if workload == "config":
+            return (
+                "Configuration dispatch writes one configuration unit on each of "
+                f"the {HOSTS:,} hosts and counts a delivery only after a read-back "
+                "matches the desired content."
+            )
+        raise SheetError(f"{workload} is not fully measured")
+
+    kmomp = rows["KMOMP"]
+    satellite = rows["Satellite 6.14"]
+    suse = rows["SUSE Manager"]
+    awx = rows["Ansible AWX"]
+    assert kmomp and satellite and suse and awx
+    phrase = WORKLOAD_PHRASE[workload]
+    table_no = TABLE_NUMBERS[workload]
+    return (
+        f"On the {phrase} workload (Table {table_no}), "
+        f"KMOMP sustains {int(kmomp['throughput']):,} hosts/s with a P99 of "
+        f"{kmomp['p99']} s and {kmomp['delivery']} delivery. "
+        f"Satellite 6.14 sustains {satellite['throughput']} hosts/s "
+        f"(P99 {satellite['p99']} s, delivery {satellite['delivery']}). "
+        f"SUSE Manager sustains {suse['throughput']} hosts/s "
+        f"(P99 {suse['p99']} s, delivery {suse['delivery']}). "
+        f"Ansible AWX sustains {awx['throughput']} hosts/s "
+        f"(P99 {awx['p99']} s, delivery {awx['delivery']}). "
+        f"Stable concurrency is {kmomp['concurrency']} for KMOMP, "
+        f"{satellite['concurrency']} for Satellite 6.14 and SUSE Manager, "
+        f"and {awx['concurrency']} for Ansible AWX."
+    )
+
+
+def summary_zh(sheet: dict[str, dict[str, dict[str, str] | None]]) -> str:
+    """Opening E2 paragraph for the Word export (replaces the one-line trend note)."""
+    for workload in WORKLOADS:
+        if not workload_ready(sheet[workload]):
+            raise SheetError(f"{workload} is not fully measured")
+    scan = sheet["scan"]["KMOMP"]
+    scan_sat = sheet["scan"]["Satellite 6.14"]
+    scan_awx = sheet["scan"]["Ansible AWX"]
+    pkg = sheet["package"]["KMOMP"]
+    pkg_sat = sheet["package"]["Satellite 6.14"]
+    pkg_awx = sheet["package"]["Ansible AWX"]
+    cfg = sheet["config"]["KMOMP"]
+    cfg_sat = sheet["config"]["Satellite 6.14"]
+    cfg_awx = sheet["config"]["Ansible AWX"]
+    assert scan and scan_sat and scan_awx and pkg and pkg_sat and pkg_awx
+    assert cfg and cfg_sat and cfg_awx
+    return (
+        f"E2 在 1,000 台主机上对比并发扫描（表 13）、软件包下发（表 14）与配置下发（表 15），"
+        f"三组列相同。并发扫描：KMOMP {int(scan['throughput']):,} hosts/s，P99 {scan['p99']} s，"
+        f"送达 {scan['delivery']}；Satellite 6.14 {scan_sat['throughput']} hosts/s，"
+        f"P99 {scan_sat['p99']} s；Ansible AWX {scan_awx['throughput']} hosts/s，"
+        f"P99 {scan_awx['p99']} s。软件包下发：KMOMP {int(pkg['throughput']):,} hosts/s，"
+        f"P99 {pkg['p99']} s，送达 {pkg['delivery']}；Satellite 6.14 {pkg_sat['throughput']} hosts/s，"
+        f"P99 {pkg_sat['p99']} s；Ansible AWX {pkg_awx['throughput']} hosts/s，"
+        f"P99 {pkg_awx['p99']} s。配置下发：KMOMP {int(cfg['throughput']):,} hosts/s，"
+        f"P99 {cfg['p99']} s，送达 {cfg['delivery']}；Satellite 6.14 {cfg_sat['throughput']} hosts/s，"
+        f"P99 {cfg_sat['p99']} s；Ansible AWX {cfg_awx['throughput']} hosts/s，"
+        f"P99 {cfg_awx['p99']} s。三组平台排序与最大并发等级一致（KMOMP 为 high，"
+        f"Satellite 6.14 与 SUSE Manager 为 mid，Ansible AWX 为 low）；软件包下发因安装与校验更重，"
+        f"吞吐低于扫描且 P99 更高；配置下发介于扫描与软件包下发之间。"
+    )
 
 
 def render_markdown(sheet: dict[str, dict[str, dict[str, str] | None]]) -> str:

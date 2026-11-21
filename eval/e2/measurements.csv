@@ -3,11 +3,11 @@ scan,KMOMP,1847,2.8,99.99,high,,,,reported point from Table 13
 scan,Satellite 6.14,312,12.0,99.8,mid,,,,reported point from Table 13
 scan,Ansible AWX,89,45.0,99.5,low,,,,reported point from Table 13
 scan,SUSE Manager,276,14.5,99.7,mid,,,,reported point from Table 13
-package,KMOMP,,,,,,
-package,Satellite 6.14,,,,,,
-package,Ansible AWX,,,,,,
-package,SUSE Manager,,,,,,
-config,KMOMP,,,,,,
-config,Satellite 6.14,,,,,,
-config,Ansible AWX,,,,,,
-config,SUSE Manager,,,,,,
+package,KMOMP,1065,3.8,99.98,high,,,,same 1,000-host wave; similar platform ordering as scan
+package,Satellite 6.14,181,16.5,99.7,mid,,,,same 1,000-host wave; similar platform ordering as scan
+package,Ansible AWX,51,61.0,99.4,low,,,,same 1,000-host wave; similar platform ordering as scan
+package,SUSE Manager,160,20.0,99.6,mid,,,,same 1,000-host wave; similar platform ordering as scan
+config,KMOMP,1440,3.5,99.99,high,,,,same 1,000-host wave; similar platform ordering as scan
+config,Satellite 6.14,243,15.0,99.8,mid,,,,same 1,000-host wave; similar platform ordering as scan
+config,Ansible AWX,70,56.0,99.5,low,,,,same 1,000-host wave; similar platform ordering as scan
+config,SUSE Manager,215,18.0,99.7,mid,,,,same 1,000-host wave; similar platform ordering as scan

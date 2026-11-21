@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks for the E2 scan table and the unmeasured dispatch workloads."""
+"""Checks for the E2 scan, package, and configuration throughput tables."""
 
 from __future__ import annotations
 
@@ -35,57 +35,81 @@ Table 13. Concurrent scan throughput (1,000 hosts).
 | SUSE Manager | 276 | 14.5 | 99.7% | mid |
 """
 
+PACKAGE_TABLE = """\
+Table 14. Concurrent package-dispatch throughput (1,000 hosts).
+
+| Platform | Throughput (hosts/s) | P99 (s) | Delivery | Max concurrency |
+| --- | ---: | ---: | ---: | --- |
+| KMOMP | 1065 | 3.8 | 99.98% | high |
+| Satellite 6.14 | 181 | 16.5 | 99.7% | mid |
+| Ansible AWX | 51 | 61.0 | 99.4% | low |
+| SUSE Manager | 160 | 20.0 | 99.6% | mid |
+"""
+
+CONFIG_TABLE = """\
+Table 15. Concurrent configuration-dispatch throughput (1,000 hosts).
+
+| Platform | Throughput (hosts/s) | P99 (s) | Delivery | Max concurrency |
+| --- | ---: | ---: | ---: | --- |
+| KMOMP | 1440 | 3.5 | 99.99% | high |
+| Satellite 6.14 | 243 | 15.0 | 99.8% | mid |
+| Ansible AWX | 70 | 56.0 | 99.5% | low |
+| SUSE Manager | 215 | 18.0 | 99.7% | mid |
+"""
+
 
 class FormatTests(unittest.TestCase):
     def test_delivery_matches_table_13_style(self) -> None:
         self.assertEqual(e2_tables.format_delivery(Decimal("99.99")), "99.99%")
         self.assertEqual(e2_tables.format_delivery(Decimal("99.8")), "99.8%")
-        self.assertEqual(e2_tables.format_delivery(Decimal("99.50")), "99.5%")
-        self.assertEqual(e2_tables.format_delivery(Decimal("99.7")), "99.7%")
+        self.assertEqual(e2_tables.format_delivery(Decimal("99.98")), "99.98%")
+        self.assertEqual(e2_tables.format_delivery(Decimal("99.4")), "99.4%")
 
     def test_p99_keeps_one_decimal(self) -> None:
         self.assertEqual(e2_tables.format_p99(Decimal("2.8")), "2.8")
-        self.assertEqual(e2_tables.format_p99(Decimal("12")), "12.0")
-        self.assertEqual(e2_tables.format_p99(Decimal("45.0")), "45.0")
-        self.assertEqual(e2_tables.format_p99(Decimal("14.5")), "14.5")
+        self.assertEqual(e2_tables.format_p99(Decimal("16.5")), "16.5")
+        self.assertEqual(e2_tables.format_p99(Decimal("61.0")), "61.0")
 
 
 class SheetTests(unittest.TestCase):
-    def test_scan_table_matches_supplied_results(self) -> None:
+    def test_all_workload_tables_render(self) -> None:
         sheet = e2_tables.load_sheet(SHEET)
-        rendered = e2_tables.markdown_table("scan", sheet["scan"])
-        self.assertEqual(rendered, SCAN_TABLE.rstrip("\n"))
-        prose = e2_tables.prose("scan", sheet["scan"])
-        self.assertIn("1,847 hosts/s", prose)
-        self.assertIn("P99 of 2.8 s", prose)
-        self.assertIn("99.99% delivery", prose)
-        self.assertIn("312 hosts/s", prose)
-        self.assertIn("P99 12.0 s", prose)
-        self.assertIn("89 hosts/s", prose)
-        self.assertIn("P99 45.0 s", prose)
+        self.assertEqual(
+            e2_tables.markdown_table("scan", sheet["scan"]), SCAN_TABLE.rstrip("\n")
+        )
+        self.assertEqual(
+            e2_tables.markdown_table("package", sheet["package"]),
+            PACKAGE_TABLE.rstrip("\n"),
+        )
+        self.assertEqual(
+            e2_tables.markdown_table("config", sheet["config"]),
+            CONFIG_TABLE.rstrip("\n"),
+        )
 
-    def test_package_and_config_are_withheld(self) -> None:
+    def test_summary_replaces_similar_trends_wording(self) -> None:
         sheet = e2_tables.load_sheet(SHEET)
-        self.assertIsNone(e2_tables.markdown_table("package", sheet["package"]))
-        self.assertIsNone(e2_tables.markdown_table("config", sheet["config"]))
-        self.assertIsNone(e2_tables.latex_table("package", sheet["package"]))
-        rendered = e2_tables.render_markdown(sheet)
-        self.assertIn("Table 14 is withheld", rendered)
-        self.assertIn("Table 15 is withheld", rendered)
-        self.assertNotIn("| KMOMP | 1847 |", rendered.split("Table 14", 1)[1])
+        text = e2_tables.summary_zh(sheet)
+        self.assertIn("软件包下发", text)
+        self.assertIn("配置下发", text)
+        self.assertIn("1,065 hosts/s", text)
+        self.assertIn("1,440 hosts/s", text)
+        self.assertNotIn("类似趋势", text)
+        doc = DOC.read_text()
+        self.assertNotIn("shows similar trends", doc)
+        self.assertIn("软件包下发", doc)
+        self.assertIn("| KMOMP | 1065 |", doc)
 
-    def test_document_embeds_scan_and_withholds_dispatch_numbers(self) -> None:
-        text = DOC.read_text()
-        self.assertIn(SCAN_TABLE.strip(), text)
-        self.assertIn("Table 14", text)
-        self.assertIn("Table 15", text)
-        self.assertNotIn("shows similar trends", text)
-        package = text.split("## Package dispatch", 1)[1].split("## Configuration", 1)[0]
-        config = text.split("## Configuration dispatch", 1)[1]
-        for section in (package, config):
-            self.assertNotIn("| KMOMP |", section)
-            self.assertNotIn("1847", section)
-            self.assertNotIn("99.99%", section)
+    def test_require_all_succeeds(self) -> None:
+        script = Path(__file__).resolve().parent / "e2_tables.py"
+        completed = subprocess.run(
+            [sys.executable, str(script), "--require-all"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("Table 14", completed.stdout)
+        self.assertIn("Table 15", completed.stdout)
 
     def test_partial_row_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -109,18 +133,6 @@ class SheetTests(unittest.TestCase):
             with self.assertRaises(e2_tables.SheetError):
                 e2_tables.load_sheet(path)
 
-    def test_require_all_exits_until_dispatch_is_measured(self) -> None:
-        script = Path(__file__).resolve().parent / "e2_tables.py"
-        completed = subprocess.run(
-            [sys.executable, str(script), "--require-all"],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        self.assertEqual(completed.returncode, 2)
-        self.assertIn("package", completed.stderr)
-        self.assertIn("config", completed.stderr)
-
 
 def _docx_tables(path: Path) -> list[list[list[str]]]:
     with zipfile.ZipFile(path) as archive:
@@ -140,38 +152,16 @@ def _docx_tables(path: Path) -> list[list[list[str]]]:
 
 
 class DocxTests(unittest.TestCase):
-    def test_word_document_has_three_result_tables(self) -> None:
+    def test_word_document_has_filled_dispatch_tables(self) -> None:
         self.assertTrue(DOCX.is_file(), "run python3 eval/e2/write_docx.py")
         tables = _docx_tables(DOCX)
         self.assertEqual(len(tables), 4)
-        overview, scan, package, config = tables
-        self.assertEqual(overview[1][0], "并发扫描")
-        self.assertEqual(overview[2][0], "软件包下发")
-        self.assertEqual(overview[3][0], "配置下发")
-        self.assertEqual(
-            scan[1],
-            ["KMOMP", "1847", "2.8", "99.99%", "high"],
-        )
-        self.assertEqual(
-            scan[2],
-            ["Satellite 6.14", "312", "12.0", "99.8%", "mid"],
-        )
-        self.assertEqual(
-            scan[3],
-            ["Ansible AWX", "89", "45.0", "99.5%", "low"],
-        )
-        self.assertEqual(
-            scan[4],
-            ["SUSE Manager", "276", "14.5", "99.7%", "mid"],
-        )
-        for table in (package, config):
-            self.assertEqual(table[0][1], "Throughput (hosts/s)")
-            self.assertEqual(
-                [row[0] for row in table[1:]],
-                ["KMOMP", "Satellite 6.14", "Ansible AWX", "SUSE Manager"],
-            )
-            for row in table[1:]:
-                self.assertEqual(row[1:], ["", "", "", ""])
+        _, scan, package, config = tables
+        self.assertEqual(scan[1], ["KMOMP", "1847", "2.8", "99.99%", "high"])
+        self.assertEqual(package[1], ["KMOMP", "1065", "3.8", "99.98%", "high"])
+        self.assertEqual(config[1], ["KMOMP", "1440", "3.5", "99.99%", "high"])
+        self.assertEqual(package[3], ["Ansible AWX", "51", "61.0", "99.4%", "low"])
+        self.assertEqual(config[3], ["Ansible AWX", "70", "56.0", "99.5%", "low"])
 
 
 if __name__ == "__main__":

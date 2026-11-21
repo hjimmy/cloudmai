@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Write the E2 section to a Word document.
 
-Scan numbers come from the measurement sheet. Package dispatch and
-configuration dispatch keep the same columns, with metric cells left blank
-until those rows are measured.
+Scan, package-dispatch, and configuration-dispatch numbers come from the
+measurement sheet and share the same table columns.
 """
 
 from __future__ import annotations
@@ -212,11 +211,12 @@ def build(sheet_path: Path | None = None) -> Document:
         size=12,
     )
 
+    add_body(doc, e2_tables.summary_zh(sheet))
     add_body(
         doc,
-        "E2 包含三组实验，口径相同：1,000 台已注册主机，平台为 KMOMP、Satellite 6.14、"
-        "Ansible AWX 和 SUSE Manager。每组报告吞吐（hosts/s）、P99（秒）、送达率和最大并发等级"
-        "（high、mid、low）。吞吐和 P99 分开测量，互不换算。",
+        "四平台为 KMOMP、Satellite 6.14、Ansible AWX 和 SUSE Manager。每组报告吞吐（hosts/s）、"
+        "P99（秒）、送达率和最大并发等级（high、mid、low）。吞吐和 P99 分开测量，互不换算。",
+        first_indent=False,
     )
 
     add_caption(doc, "三组实验")
@@ -251,26 +251,24 @@ def build(sheet_path: Path | None = None) -> Document:
     add_table(doc, RESULT_HEADERS, result_rows(sheet, "scan"), [3.6, 3.6, 2.2, 2.6, 3.6])
 
     doc.add_heading("软件包下发", level=2)
-    add_body(doc, e2_tables.prose("package", sheet["package"]), first_indent=False)
     add_body(
         doc,
-        "每一台主机安装同一个软件包。填表前记录包名、版本、字节数，以及字节是否来自本地镜像。"
-        "四个指标列都有值，这一行才算测完。",
+        "每一台主机安装同一个软件包；送达须在包数据库中见到指定版本且服务器接受回执。",
+        first_indent=False,
     )
+    add_body(doc, e2_tables.prose("package", sheet["package"]), first_indent=False)
     add_caption(doc, "表 14  Concurrent package-dispatch throughput (1,000 hosts)")
     add_table(doc, RESULT_HEADERS, result_rows(sheet, "package"), [3.6, 3.6, 2.2, 2.6, 3.6])
-    add_note(doc, "表 14 的吞吐、P99、送达率和最大并发留空，待这一组实测后填入。")
 
     doc.add_heading("配置下发", level=2)
-    add_body(doc, e2_tables.prose("config", sheet["config"]), first_indent=False)
     add_body(
         doc,
-        "配置单元是一个文件或一个键，1,000 台主机使用同一份目标内容。填表前记录单元字节数。"
-        "成功条件是回读校验和与目标一致，并且服务器接受回执。送达率的分母与表 13、表 14 相同。",
+        "配置单元是一个文件或一个键，1,000 台主机使用同一份目标内容；送达须回读一致且服务器接受回执。",
+        first_indent=False,
     )
+    add_body(doc, e2_tables.prose("config", sheet["config"]), first_indent=False)
     add_caption(doc, "表 15  Concurrent configuration-dispatch throughput (1,000 hosts)")
     add_table(doc, RESULT_HEADERS, result_rows(sheet, "config"), [3.6, 3.6, 2.2, 2.6, 3.6])
-    add_note(doc, "表 15 的吞吐、P99、送达率和最大并发留空，待这一组实测后填入。")
     return doc
 
 
