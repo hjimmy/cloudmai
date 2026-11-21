@@ -7,8 +7,10 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 from decimal import Decimal
 from pathlib import Path
+from xml.etree import ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -16,7 +18,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import e2_tables  # noqa: E402
 
 DOC = ROOT / "docs" / "evaluation" / "e2-concurrent-throughput.md"
+DOCX = ROOT / "docs" / "evaluation" / "e2-concurrent-throughput.docx"
 SHEET = Path(__file__).resolve().parent / "measurements.csv"
+W_T = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t"
+W_TBL = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}tbl"
+W_TR = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}tr"
 
 SCAN_TABLE = """\
 Table 13. Concurrent scan throughput (1,000 hosts).
@@ -114,6 +120,58 @@ class SheetTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 2)
         self.assertIn("package", completed.stderr)
         self.assertIn("config", completed.stderr)
+
+
+def _docx_tables(path: Path) -> list[list[list[str]]]:
+    with zipfile.ZipFile(path) as archive:
+        root = ET.fromstring(archive.read("word/document.xml"))
+    tables = []
+    for tbl in root.iter(W_TBL):
+        rows = []
+        for tr in tbl.findall(W_TR):
+            cells = []
+            for tc in tr:
+                if not tc.tag.endswith("}tc"):
+                    continue
+                cells.append("".join(node.text or "" for node in tc.iter(W_T)))
+            rows.append(cells)
+        tables.append(rows)
+    return tables
+
+
+class DocxTests(unittest.TestCase):
+    def test_word_document_has_three_result_tables(self) -> None:
+        self.assertTrue(DOCX.is_file(), "run python3 eval/e2/write_docx.py")
+        tables = _docx_tables(DOCX)
+        self.assertEqual(len(tables), 4)
+        overview, scan, package, config = tables
+        self.assertEqual(overview[1][0], "并发扫描")
+        self.assertEqual(overview[2][0], "软件包下发")
+        self.assertEqual(overview[3][0], "配置下发")
+        self.assertEqual(
+            scan[1],
+            ["KMOMP", "1847", "2.8", "99.99%", "high"],
+        )
+        self.assertEqual(
+            scan[2],
+            ["Satellite 6.14", "312", "12.0", "99.8%", "mid"],
+        )
+        self.assertEqual(
+            scan[3],
+            ["Ansible AWX", "89", "45.0", "99.5%", "low"],
+        )
+        self.assertEqual(
+            scan[4],
+            ["SUSE Manager", "276", "14.5", "99.7%", "mid"],
+        )
+        for table in (package, config):
+            self.assertEqual(table[0][1], "Throughput (hosts/s)")
+            self.assertEqual(
+                [row[0] for row in table[1:]],
+                ["KMOMP", "Satellite 6.14", "Ansible AWX", "SUSE Manager"],
+            )
+            for row in table[1:]:
+                self.assertEqual(row[1:], ["", "", "", ""])
 
 
 if __name__ == "__main__":

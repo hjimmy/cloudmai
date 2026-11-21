@@ -67,6 +67,8 @@ Table 15 is withheld until `eval/e2/measurements.csv` has throughput, P99, deliv
 
 The unit is one file or one key, identical across the 1,000 hosts. Record its size in bytes. Success is a checksum match on the read-back plus an accepted server ack, the same delivery denominator as Table 13 and Table 14.
 
+Word 版：`docs/evaluation/e2-concurrent-throughput.docx`（由 `python3 eval/e2/write_docx.py` 生成）。
+
 ## Filling Tables 14 and 15
 
 Edit the `package` and `config` rows in `eval/e2/measurements.csv`. Then:
